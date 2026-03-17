@@ -20,6 +20,122 @@
   </head>
   <body>
     <!-- Здесь табличка появится автоматически -->
+    <div id="robofilter" style="margin:10px 0; font-family: Arial, sans-serif; font-size:13px;">
+      <label style="margin-right:8px;">Фильтр по ставке:</label>
+      <select id="betFilterSelect" style="margin-right:8px;"></select>
+      <input id="betFilterText" placeholder="Поиск (включает)" style="margin-right:8px; padding:2px 6px;" />
+      <button id="betFilterClear" style="padding:2px 6px;">Сброс</button>
+    </div>
     <div id="roboblock" class="roboblock"></div>
+
+    <script>
+      (function($){
+        var currentFilter = {type: 'any', value: ''};
+        var debounceTimer = null;
+
+        function findTableAndColumn(){
+          var $table = $('#roboblock').find('table').first();
+          if (!$table || $table.length === 0) return null;
+
+          // Try to find header cells (th) or first row cells
+          var headers = [];
+          var $ths = $table.find('thead th');
+          if ($ths.length){
+            $ths.each(function(){ headers.push($(this).text().trim()); });
+          } else {
+            var $firstRow = $table.find('tr').first().find('td,th');
+            $firstRow.each(function(){ headers.push($(this).text().trim()); });
+          }
+
+          var colIndex = -1;
+          for (var i=0;i<headers.length;i++){
+            if (headers[i] && headers[i].toLowerCase().indexOf('ставк') !== -1){ colIndex = i; break; }
+          }
+          return {table: $table, colIndex: colIndex};
+        }
+
+        function gatherUniqueValues($table, colIndex){
+          var vals = {};
+          $table.find('tbody tr').each(function(){
+            var $tds = $(this).find('td');
+            var text = ($tds.eq(colIndex).text()||'').trim();
+            if (text) vals[text] = true;
+          });
+          return Object.keys(vals).sort();
+        }
+
+        function populateSelect(options){
+          var $sel = $('#betFilterSelect');
+          var prev = $sel.val();
+          $sel.empty();
+          $sel.append($('<option>').attr('value','').text('Все'));
+          options.forEach(function(o){ $sel.append($('<option>').attr('value',o).text(o)); });
+          if (prev) $sel.val(prev);
+        }
+
+        function applyFilter(){
+          var info = findTableAndColumn();
+          if (!info || info.colIndex < 0) return;
+          var $table = info.table;
+          var idx = info.colIndex;
+          var filterVal = currentFilter.value.toLowerCase();
+
+          $table.find('tbody tr').each(function(){
+            var $row = $(this);
+            var text = ($row.find('td').eq(idx).text()||'').trim().toLowerCase();
+            var show = true;
+            if (currentFilter.type === 'exact' && filterVal){ show = (text === filterVal); }
+            else if (currentFilter.type === 'includes' && filterVal){ show = (text.indexOf(filterVal) !== -1); }
+            $row.toggle(show);
+          });
+        }
+
+        function updateAndApply(){
+          var info = findTableAndColumn();
+          if (!info || info.colIndex < 0) return;
+          var opts = gatherUniqueValues(info.table, info.colIndex);
+          populateSelect(opts);
+          applyFilter();
+        }
+
+        // Hook UI
+        $(function(){
+          $('#betFilterSelect').on('change', function(){
+            var val = $(this).val();
+            if (!val){ currentFilter.type = 'any'; currentFilter.value = ''; $('#betFilterText').val(''); }
+            else { currentFilter.type = 'exact'; currentFilter.value = val; $('#betFilterText').val(val); }
+            applyFilter();
+          });
+
+          $('#betFilterText').on('input', function(){
+            var v = $(this).val().trim();
+            if (v){ currentFilter.type = 'includes'; currentFilter.value = v; $('#betFilterSelect').val(''); }
+            else { currentFilter.type = 'any'; currentFilter.value = ''; }
+            if (debounceTimer) clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(applyFilter, 150);
+          });
+
+          $('#betFilterClear').on('click', function(){
+            currentFilter = {type:'any', value:''};
+            $('#betFilterSelect').val(''); $('#betFilterText').val('');
+            applyFilter();
+          });
+
+          // Observe widget area for table insertion/updates
+          var target = document.getElementById('roboblock');
+          if (target){
+            var mo = new MutationObserver(function(muts){
+              // small debounce to wait for widget render
+              if (debounceTimer) clearTimeout(debounceTimer);
+              debounceTimer = setTimeout(function(){ updateAndApply(); }, 120);
+            });
+            mo.observe(target, {childList:true, subtree:true, characterData:true});
+          }
+
+          // initial attempt in case widget already rendered
+          setTimeout(updateAndApply, 500);
+        });
+      })(jQuery);
+    </script>
   </body>
 </html>
