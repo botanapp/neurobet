@@ -165,9 +165,11 @@ def main():
         choices = norm_bet(bet)
         if not choices:
             continue
-        # only care about bets that include 1,2 or X
-        if not (choices & set(('1','2','X'))):
+        # Only accept single-choice bets exactly '1', '2' or 'X'. Exclude composites like '1X','12','X2'.
+        single_choices = choices & set(('1', '2', 'X'))
+        if len(single_choices) != 1:
             continue
+        b = next(iter(single_choices))
         stats['filtered_count'] += 1
         result_raw = r.get('result')
         outcome, why = detect_outcome(result_raw)
@@ -177,23 +179,21 @@ def main():
         if outcome is None:
             stats['skipped_count'] += 1
             continue
-        # determine win/lose (treat bet as set; composite bets win if outcome in set)
-        win = (outcome in choices)
+
+        # determine win/lose for single-choice bet
+        win = (outcome == b)
         if win:
+            odd_field = 'odd1' if b == '1' else ('odd2' if b == '2' else 'oddx')
+            odd = norm_odd(r.get(odd_field))
+            if odd is None:
+                stats['skipped_count'] += 1
+                continue
+            profit = stake * (odd - 1.0)
             stats['wins_count'] += 1
-            # compute profit only for single-choice bets where corresponding odd exists
-            if len(choices) == 1:
-                b = next(iter(choices))
-                odd_field = 'odd1' if b == '1' else ('odd2' if b == '2' else 'oddx')
-                odd = norm_odd(r.get(odd_field))
-                if odd is None:
-                    stats['skipped_count'] += 1
-                    continue
-                profit = stake * (odd - 1.0)
-                stats['wins_profit_sum'] += profit
-                stats['overall_result'] += profit
+            stats['wins_profit_sum'] += profit
+            stats['overall_result'] += profit
         else:
-            # lost: stake lost regardless of single/composite
+            # lost
             stats['losses_count'] += 1
             loss = stake
             stats['losses_sum'] += loss
