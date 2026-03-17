@@ -6,10 +6,12 @@ from bs4 import BeautifulSoup
 import json
 from datetime import datetime, timedelta
 
-def get_yesterday():
-    # Use server/local timezone (GitHub Actions UTC) — that's fine for "yesterday".
-    d = datetime.utcnow().date() - timedelta(days=1)
-    return d.strftime('%Y-%m-%d')
+def get_yesterday_msk():
+    # Compute "yesterday" in Moscow time (UTC+3) to match user's timezone preference.
+    now_utc = datetime.utcnow()
+    now_msk = now_utc + timedelta(hours=3)
+    y = (now_msk.date() - timedelta(days=1))
+    return y.strftime('%Y-%m-%d')
 
 def fetch(offset_date, ref):
     url = 'https://vprognoze.ru/webmaster_moduls/webmasters_robobet.php'
@@ -48,9 +50,29 @@ def parse_table(html):
         if not tds:
             continue
         # columns per widget structure
+        # try to extract country code from flag class in the match cell
+        country_code = ''
+        if len(tds) > 1:
+            match_td = tds[1]
+            img = match_td.find('img')
+            if img and img.has_attr('class'):
+                classes = img.get('class')
+                # BeautifulSoup may return list for class attribute
+                if isinstance(classes, list):
+                    for c in classes:
+                        if c.startswith('flag-') and c != 'flags':
+                            country_code = c.split('-',1)[1]
+                            break
+                else:
+                    for c in classes.split():
+                        if c.startswith('flag-') and c != 'flags':
+                            country_code = c.split('-',1)[1]
+                            break
+
         item = {
             'time': tds[0].get_text(strip=True) if len(tds) > 0 else '',
             'match': tds[1].get_text(strip=True) if len(tds) > 1 else '',
+            'country': country_code,
             'p1': tds[2].get_text(strip=True) if len(tds) > 2 else '',
             'px': tds[3].get_text(strip=True) if len(tds) > 3 else '',
             'p2': tds[4].get_text(strip=True) if len(tds) > 4 else '',
