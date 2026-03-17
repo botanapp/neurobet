@@ -5,6 +5,9 @@ on:
     - cron: '0 */4 * * *' # every 4 hours
   workflow_dispatch: {}
 
+permissions:
+  contents: write
+
 jobs:
   update:
     runs-on: ubuntu-latest
@@ -13,6 +16,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup Python
         uses: actions/setup-python@v4
@@ -30,14 +35,28 @@ jobs:
         run: |
           python scripts/update_roboblock.py
 
+      - name: Debug generated files
+        run: |
+          echo '--- ls -la ---'
+          ls -la
+          echo '--- git status ---'
+          git status --porcelain
+          echo '--- head roboblock.html (if exists) ---'
+          if [ -f roboblock.html ]; then head -n 50 roboblock.html; else echo 'roboblock.html not found'; fi
+          echo '--- head roboblock.json (if exists) ---'
+          if [ -f roboblock.json ]; then head -n 50 roboblock.json; else echo 'roboblock.json not found'; fi
+
       - name: Commit changes if any
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           if [ -n "$(git status --porcelain)" ]; then
             git add roboblock.html roboblock.json || true
             git commit -m "Update roboblock snapshot" || true
-            git push origin HEAD:${{ github.ref_name }} || true
+            # push using token to avoid auth issues
+            git push https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }} HEAD:${{ github.ref_name }} || true
           else
             echo "No changes"
           fi
