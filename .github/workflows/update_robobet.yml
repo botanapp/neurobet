@@ -67,7 +67,11 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           if [ -n "$(git status --porcelain)" ]; then
             git add roboblock.html roboblock.json || true
-            git commit -m "Update roboblock snapshot" || true
+            # include monthly totals if aggregator created it
+            if [ -f data/monthly_totals.json ]; then
+              git add data/monthly_totals.json || true
+            fi
+            git commit -m "Update roboblock snapshot and monthly totals" || true
             # push using token to avoid auth issues
             git push https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }} HEAD:${{ github.ref_name }} || true
           else
