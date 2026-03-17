@@ -47,6 +47,23 @@ def norm_odd(s):
         return None
 
 
+def norm_bet(s):
+    """Normalize bet string into a set of choices using {'1','2','X'}.
+    Handles composites like '1X','X2','12' and Cyrillic 'П1'/'П2'."""
+    if not s:
+        return set()
+    t = str(s).strip().upper()
+    # replace common Cyrillic P (П) with empty so 'П1' -> '1'
+    t = t.replace('П', '')
+    # remove spaces and separators
+    t = re.sub(r"[^0-9A-Z]", "", t)
+    choices = set()
+    for ch in t:
+        if ch == '1' or ch == '2' or ch == 'X':
+            choices.add(ch)
+    return choices
+
+
 def detect_outcome(result_text):
     if not result_text:
         return None, 'no_result'
@@ -142,11 +159,14 @@ def main():
     stake = float(args.stake)
 
     for r in rows:
-        bet = (r.get('bet') or '').strip()
+        bet = (r.get('bet') or '')
         if not bet:
             continue
-        b = bet.upper()
-        if b not in ('1','2','X'):
+        choices = norm_bet(bet)
+        if not choices:
+            continue
+        # only care about bets that include 1,2 or X
+        if not (choices & set(('1','2','X'))):
             continue
         stats['filtered_count'] += 1
         result_raw = r.get('result')
@@ -157,21 +177,23 @@ def main():
         if outcome is None:
             stats['skipped_count'] += 1
             continue
-
-        # determine win/lose
-        win = (outcome == b)
+        # determine win/lose (treat bet as set; composite bets win if outcome in set)
+        win = (outcome in choices)
         if win:
-            odd_field = 'odd1' if b == '1' else ('odd2' if b == '2' else 'oddx')
-            odd = norm_odd(r.get(odd_field))
-            if odd is None:
-                stats['skipped_count'] += 1
-                continue
-            profit = stake * (odd - 1.0)
             stats['wins_count'] += 1
-            stats['wins_profit_sum'] += profit
-            stats['overall_result'] += profit
+            # compute profit only for single-choice bets where corresponding odd exists
+            if len(choices) == 1:
+                b = next(iter(choices))
+                odd_field = 'odd1' if b == '1' else ('odd2' if b == '2' else 'oddx')
+                odd = norm_odd(r.get(odd_field))
+                if odd is None:
+                    stats['skipped_count'] += 1
+                    continue
+                profit = stake * (odd - 1.0)
+                stats['wins_profit_sum'] += profit
+                stats['overall_result'] += profit
         else:
-            # lost
+            # lost: stake lost regardless of single/composite
             stats['losses_count'] += 1
             loss = stake
             stats['losses_sum'] += loss
