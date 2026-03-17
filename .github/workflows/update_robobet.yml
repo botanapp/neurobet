@@ -37,11 +37,15 @@ jobs:
           python scripts/update_roboblock.py
 
       - name: Run aggregator and notify
-        if: ${{ secrets.TELEGRAM_BOT_TOKEN != '' && secrets.TELEGRAM_CHAT_ID != '' }}
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: |
+          # skip if secrets not provided (safe for public forks)
+          if [ -z "${TELEGRAM_BOT_TOKEN:-}" ] || [ -z "${TELEGRAM_CHAT_ID:-}" ]; then
+            echo 'TELEGRAM secrets not set - skipping aggregator'
+            exit 0
+          fi
           python scripts/aggregate_and_notify.py --json roboblock.json || true
 
       - name: Debug generated files
