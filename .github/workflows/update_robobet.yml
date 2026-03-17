@@ -36,6 +36,14 @@ jobs:
         run: |
           python scripts/update_roboblock.py
 
+      - name: Run aggregator and notify
+        if: ${{ secrets.TELEGRAM_BOT_TOKEN != '' && secrets.TELEGRAM_CHAT_ID != '' }}
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          python scripts/aggregate_and_notify.py --json roboblock.json || true
+
       - name: Debug generated files
         run: |
           echo '--- ls -la ---'
