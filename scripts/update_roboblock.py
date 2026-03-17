@@ -95,7 +95,7 @@ def write_outputs(data):
 
 def main():
     ref = os.environ.get('REF_URL', 'https://botanapp.github.io/neurobet/')
-    offset_date = get_yesterday()
+    offset_date = get_yesterday_msk()
     print('Fetching offset=', offset_date)
     html = fetch(offset_date, ref)
     parsed = parse_table(html)
