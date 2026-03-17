@@ -1,86 +1,28 @@
 <!DOCTYPE html>
 <html>
-  <head>
-    <meta charset="utf-8">
-    <title>Neurobet v1</title>
-    <!-- 1) Включаем jQuery -->
-    <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.3/jquery.min.js"></script>
-    <!-- 2) Перед этим объявляем параметры модуля -->
-    <script>
-      v_width       =  99;
-      head_bgc      = 'C7D6E9';
-      row_bgc       = 'FFFFFF';
-      head_fontsize = '12';
-      row_fontsize  = '12';
-      text_color    = '000';
-      utc           = '3';
-    </script>
-    <!-- Установим по умолчанию hash с вчерашней датой (offset_YYYY-MM-DD),
-         если offset не указан в URL (query) или в hash'е -->
-    <script>
-      (function(){
-        function hasOffsetInHash(){ return /offset_\d{4}-\d{2}-\d{2}/.test(location.hash); }
-        function hasOffsetInQuery(){ return new URLSearchParams(location.search).has('offset'); }
-        if (!hasOffsetInHash() && !hasOffsetInQuery()){
-          var d = new Date();
-          d.setDate(d.getDate() - 1);
-          var yyyy = d.getFullYear();
-          var mm = ("0" + (d.getMonth() + 1)).slice(-2);
-          var dd = ("0" + d.getDate()).slice(-2);
-          var off = 'offset_' + yyyy + '-' + mm + '-' + dd;
-          try{
-            history.replaceState(null, '', location.pathname + location.search + '#' + off);
-          }catch(e){
-            // fallback
-            location.hash = off;
-          }
-        }
-      })();
-    </script>
-    <!-- 3) Подключаем сам скрипт -->
-    <script src="https://vprognoze.ru/webmaster_moduls/robobet_modul.js"></script>
-  </head>
-  <body>
-    <!-- Здесь табличка появится автоматически -->
-    <div id="roboblock" class="roboblock"></div>
-    <script>
-      // Try to load parsed JSON snapshot (roboblock.json) produced by GitHub Action.
-      (function(){
-        fetch('roboblock.json', {cache: 'no-store'}).then(function(resp){
-          if (!resp.ok) throw new Error('no json');
-          return resp.json();
-        }).then(function(data){
-          var rows = data.rows || [];
-          if (!rows.length) return;
-          // build a simple table
-          var html = '<table class="robot-table"><thead><tr>'+
-                     '<th>Время</th><th>Матч</th><th>1</th><th>X</th><th>2</th><th>Ставка</th><th>Коэф 1</th><th>Коэф X</th><th>Коэф 2</th><th>Итог</th>'+
-                     '</tr></thead><tbody>';
-          rows.forEach(function(r){
-            html += '<tr>'+
-                    '<td class="robot-table__cell-time">'+escapeHtml(r.time)+'</td>'+
-                    '<td class="robot-table__cell-match">'+escapeHtml(r.match)+'</td>'+
-                    '<td class="robot-table__cell-value">'+escapeHtml(r.p1)+'</td>'+
-                    '<td class="robot-table__cell-value">'+escapeHtml(r.px)+'</td>'+
-                    '<td class="robot-table__cell-value">'+escapeHtml(r.p2)+'</td>'+
-                    '<td class="robot-table__cell-rate">'+escapeHtml(r.bet)+'</td>'+
-                    '<td class="robot-table__cell-value">'+escapeHtml(r.odd1)+'</td>'+
-                    '<td class="robot-table__cell-value">'+escapeHtml(r.oddx)+'</td>'+
-                    '<td class="robot-table__cell-value">'+escapeHtml(r.odd2)+'</td>'+
-                    '<td class="robot-table__cell-result">'+escapeHtml(r.result)+'</td>'+
-                    '</tr>';
-          });
-          html += '</tbody></table>';
-          document.getElementById('roboblock').innerHTML = html;
-        }).catch(function(){
-          // no snapshot: leave widget iframe/script to render
-        });
 
-        function escapeHtml(s){
-          if (!s) return '';
-          return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-        }
-      })();
-    </script>
-  </body>
+<head>
+  <meta charset="utf-8">
+  <title>Neurobet v1</title>
+  <!-- 1) Включаем jQuery -->
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.3/jquery.min.js"></script>
+  <!-- 2) Перед этим объявляем параметры модуля -->
+  <script>
+    v_width = 99;
+    head_bgc = 'C7D6E9';
+    row_bgc = 'FFFFFF';
+    head_fontsize = '12';
+    row_fontsize = '12';
+    text_color = '000';
+    utc = '3';
+  </script>
+  <!-- 3) Подключаем сам скрипт -->
+  <script src="https://vprognoze.ru/webmaster_moduls/robobet_modul.js"></script>
+</head>
+
+<body>
+  <!-- Здесь табличка появится автоматически -->
+  <div id="roboblock" class="roboblock"></div>
+</body>
+
 </html>
