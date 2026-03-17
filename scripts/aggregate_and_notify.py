@@ -4,7 +4,7 @@ import sys
 import json
 import argparse
 import re
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 
 try:
     import requests
@@ -133,17 +133,14 @@ def main():
         data = json.load(f)
 
     rows = data.get('rows') or []
-    gen_at = data.get('generated_at')
-    if args.date:
-        date_str = args.date
-    else:
-        if gen_at:
-            try:
-                date_str = datetime.fromisoformat(gen_at.replace('Z','')).strftime('%Y-%m-%d')
-            except Exception:
-                date_str = datetime.utcnow().strftime('%Y-%m-%d')
-        else:
-            date_str = datetime.utcnow().strftime('%Y-%m-%d')
+
+    # Use yesterday in Moscow time for the report date
+    now_utc = datetime.utcnow().replace(tzinfo=timezone.utc)
+    msk = timezone(timedelta(hours=3))
+    msk_now = now_utc.astimezone(msk)
+    msk_yesterday = (msk_now - timedelta(days=1)).date()
+    # format as DD.MM.YYYY to match example
+    date_str = args.date or msk_yesterday.strftime('%d.%m.%Y')
 
     stats = {
         'filtered_count': 0,
@@ -157,6 +154,9 @@ def main():
     }
 
     stake = float(args.stake)
+
+    # collect detail lines for message
+    details = []
 
     for r in rows:
         bet = (r.get('bet') or '')
@@ -199,12 +199,59 @@ def main():
             stats['losses_sum'] += loss
             stats['overall_result'] -= loss
 
+        # record detail line for messaging (only for non-cancelled, non-skipped single bets)
+        odd_field = 'odd1' if b == '1' else ('odd2' if b == '2' else 'oddx')
+        odd_raw = r.get(odd_field) or '-'
+        profit_int = int(round(profit)) if win else -int(round(stake))
+        emoji = '🟢' if win else '🔴'
+        bet_display = 'П1' if b == '1' else ('П2' if b == '2' else 'X')
+        details.append({'time': r.get('time',''), 'match': r.get('match',''), 'bet': bet_display, 'odd': odd_raw, 'result': r.get('result',''), 'profit': profit_int, 'emoji': emoji})
+
     # round sums to integer for messaging
     stats['wins_profit_sum'] = int(round(stats['wins_profit_sum']))
     stats['losses_sum'] = int(round(stats['losses_sum']))
     stats['overall_result'] = int(round(stats['overall_result']))
 
-    message = build_message(date_str, stats)
+    # round sums to integer for messaging
+    stats['wins_profit_sum'] = int(round(stats['wins_profit_sum']))
+    stats['losses_sum'] = int(round(stats['losses_sum']))
+    stats['overall_result'] = int(round(stats['overall_result']))
+
+    # update or compute month-to-date total using simple file-store (data/monthly_totals.json)
+    month_key = msk_now.strftime('%Y-%m')
+    month_total = None
+    totals_path = os.path.join('data', 'monthly_totals.json')
+    totals = {}
+    if os.path.exists(totals_path):
+        try:
+            with open(totals_path, 'r', encoding='utf-8') as tf:
+                totals = json.load(tf)
+        except Exception:
+            totals = {}
+    prev = int(totals.get(month_key, 0))
+    month_total = prev + stats['overall_result']
+    if not args.dry_run:
+        # ensure directory
+        os.makedirs(os.path.dirname(totals_path), exist_ok=True)
+        totals[month_key] = month_total
+        with open(totals_path, 'w', encoding='utf-8') as tf:
+            json.dump(totals, tf, ensure_ascii=False, indent=2)
+
+    # build formatted message (header + per-event lines)
+    header_lines = []
+    header_lines.append(f"📊 Итоги за {date_str}:")
+    header_lines.append(f"Всего ставок: {stats['filtered_count']}, Побед: {stats['wins_count']}, Поражений: {stats['losses_count']}, Отмен: {stats['cancelled_count']}")
+    sign = '+' if stats['overall_result'] >= 0 else '-'
+    header_lines.append(f"Итог дня: {sign}{abs(stats['overall_result'])} руб.")
+    sign_m = '+' if month_total >= 0 else '-'
+    header_lines.append(f"Итог текущего месяца: {sign_m}{abs(month_total)} руб.")
+
+    detail_lines = []
+    for d in details:
+        s = f"{d['emoji']} {d['time']} | {d['match']} | {d['bet']} | {d['odd']} | {d['result']} | {('+' if d['profit']>=0 else '-')}{abs(d['profit'])} руб."
+        detail_lines.append(s)
+
+    message = '\n'.join(header_lines + [''] + detail_lines)
 
     # log details
     print('--- Aggregation summary ---')
