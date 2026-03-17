@@ -15,6 +15,28 @@
       text_color    = '000';
       utc           = '3';
     </script>
+    <!-- Установим по умолчанию hash с вчерашней датой (offset_YYYY-MM-DD),
+         если offset не указан в URL (query) или в hash'е -->
+    <script>
+      (function(){
+        function hasOffsetInHash(){ return /offset_\d{4}-\d{2}-\d{2}/.test(location.hash); }
+        function hasOffsetInQuery(){ return new URLSearchParams(location.search).has('offset'); }
+        if (!hasOffsetInHash() && !hasOffsetInQuery()){
+          var d = new Date();
+          d.setDate(d.getDate() - 1);
+          var yyyy = d.getFullYear();
+          var mm = ("0" + (d.getMonth() + 1)).slice(-2);
+          var dd = ("0" + d.getDate()).slice(-2);
+          var off = 'offset_' + yyyy + '-' + mm + '-' + dd;
+          try{
+            history.replaceState(null, '', location.pathname + location.search + '#' + off);
+          }catch(e){
+            // fallback
+            location.hash = off;
+          }
+        }
+      })();
+    </script>
     <!-- 3) Подключаем сам скрипт -->
     <script src="https://vprognoze.ru/webmaster_moduls/robobet_modul.js"></script>
   </head>
