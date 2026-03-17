@@ -43,5 +43,44 @@
   <body>
     <!-- Здесь табличка появится автоматически -->
     <div id="roboblock" class="roboblock"></div>
+    <script>
+      // Try to load parsed JSON snapshot (roboblock.json) produced by GitHub Action.
+      (function(){
+        fetch('roboblock.json', {cache: 'no-store'}).then(function(resp){
+          if (!resp.ok) throw new Error('no json');
+          return resp.json();
+        }).then(function(data){
+          var rows = data.rows || [];
+          if (!rows.length) return;
+          // build a simple table
+          var html = '<table class="robot-table"><thead><tr>'+
+                     '<th>Время</th><th>Матч</th><th>1</th><th>X</th><th>2</th><th>Ставка</th><th>Коэф 1</th><th>Коэф X</th><th>Коэф 2</th><th>Итог</th>'+
+                     '</tr></thead><tbody>';
+          rows.forEach(function(r){
+            html += '<tr>'+
+                    '<td class="robot-table__cell-time">'+escapeHtml(r.time)+'</td>'+
+                    '<td class="robot-table__cell-match">'+escapeHtml(r.match)+'</td>'+
+                    '<td class="robot-table__cell-value">'+escapeHtml(r.p1)+'</td>'+
+                    '<td class="robot-table__cell-value">'+escapeHtml(r.px)+'</td>'+
+                    '<td class="robot-table__cell-value">'+escapeHtml(r.p2)+'</td>'+
+                    '<td class="robot-table__cell-rate">'+escapeHtml(r.bet)+'</td>'+
+                    '<td class="robot-table__cell-value">'+escapeHtml(r.odd1)+'</td>'+
+                    '<td class="robot-table__cell-value">'+escapeHtml(r.oddx)+'</td>'+
+                    '<td class="robot-table__cell-value">'+escapeHtml(r.odd2)+'</td>'+
+                    '<td class="robot-table__cell-result">'+escapeHtml(r.result)+'</td>'+
+                    '</tr>';
+          });
+          html += '</tbody></table>';
+          document.getElementById('roboblock').innerHTML = html;
+        }).catch(function(){
+          // no snapshot: leave widget iframe/script to render
+        });
+
+        function escapeHtml(s){
+          if (!s) return '';
+          return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        }
+      })();
+    </script>
   </body>
 </html>

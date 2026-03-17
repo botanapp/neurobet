@@ -1,0 +1,41 @@
+name: Update robobet snapshot
+
+on:
+  schedule:
+    - cron: '0 */4 * * *' # every 4 hours
+  workflow_dispatch: {}
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests beautifulsoup4
+
+      - name: Run update script
+        env:
+          REF_URL: 'https://botanapp.github.io/neurobet/'
+        run: |
+          python scripts/update_roboblock.py
+
+      - name: Commit changes if any
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if [ -n "$(git status --porcelain)" ]; then
+            git add roboblock.html roboblock.json || true
+            git commit -m "Update roboblock snapshot" || true
+            git push origin HEAD:${{ github.ref_name }} || true
+          else
+            echo "No changes"
+          fi
